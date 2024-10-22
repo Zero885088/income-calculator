@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Business Income & Expense Manager</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.3/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f9;
+        }
+        .container {
+            max-width: 600px;
+            background-color: white;
+            padding: 20px;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
+            margin: 0 auto;
+            border-radius: 8px;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        .form-group input, .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 16px;
+            box-sizing: border-box;
+            transition: border 0.3s;
+        }
+        .form-group input[type="date"] {
+            padding: 8px;
+            font-size: 16px;
+            width: 50%;
+        }
+        .form-group input:focus, .form-group textarea:focus {
+            border: 1px solid #007bff;
+            outline: none;
+        }
+        .button-group {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+        .button-group button {
+            flex: 1;
+            padding: 12px;
+            margin: 0 5px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            color: white;
+            transition: background 0.3s;
+        }
+        .button-group button.income-btn {
+            background-color: #28a745;
+        }
+        .button-group button.expense-btn {
+            background-color: #dc3545;
+        }
+        .button-group button:hover {
+            opacity: 0.8;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        table {
+            width: 100%;
+            margin-top: 20px;
+            border-collapse: collapse;
+        }
+        table, th, td {
+            border: 1px solid #ddd;
+        }
+        th, td {
+            padding: 10px;
+            text-align: center;
+        }
+        th {
+            background-color: #007bff;
+            color: white;
+            font-weight: bold;
+        }
+        td {
+            background-color: #f8f9fa;
+        }
+        .total-balance {
+            font-size: 18px;
+            margin-top: 20px;
+            font-weight: bold;
+            text-align: center;
+            color: #333;
+        }
+        .export-buttons {
+            margin-top: 20px;
+            display: flex;
+            justify-content: space-between;
+        }
+        .export-buttons button {
+            flex: 1;
+            padding: 12px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.3s;
+            margin: 0 5px;
+        }
+        .export-buttons button:hover {
+            background-color: #0056b3;
+        }
+        .delete-btn {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .delete-btn:hover {
+            background-color: #c82333;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Business Income & Expense Manager</h1>
+
+        <div class="form-group">
+            <label for="amount">Amount:</label>
+            <input type="number" id="amount" placeholder="Enter amount">
+        </div>
+
+        <div class="form-group">
+            <label for="type">Type:</label>
+            <div class="button-group">
+                <button class="income-btn" id="incomeBtn" onclick="selectType('Income')">Income</button>
+                <button class="expense-btn" id="expenseBtn" onclick="selectType('Expense')">Expense</button>
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label for="date">Date:</label>
+            <input type="date" id="date">
+        </div>
+
+        <div class="form-group">
+            <label for="remark">Remark:</label>
+            <textarea id="remark" rows="3" placeholder="Add a remark"></textarea>
+        </div>
+        
+        <button onclick="addToTable()">Add to Table</button>
+
+        <table id="recordsTable">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Remark</th>
+                    <th>Income</th>
+                    <th>Expense</th>
+                    <th>Balance</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Entries will be added here -->
+            </tbody>
+        </table>
+
+        <div class="total-balance">
+            Total Balance: $<span id="totalBalance">0.00</span>
+        </div>
+
+        <div class="export-buttons">
+            <button onclick="exportToExcel()">Export to Excel</button>
+            <button onclick="exportToPDF()">Export to PDF</button>
+        </div>
+
+    </div>
+
+    <script>
+        let selectedType = "";
+        let totalBalance = 0;
+
+        function selectType(type) {
+            selectedType = type;
+            document.getElementById('incomeBtn').disabled = type === 'Income';
+            document.getElementById('expenseBtn').disabled = type === 'Expense';
+        }
+
+        function addToTable() {
+            const amount = parseFloat(document.getElementById('amount').value);
+            const remark = document.getElementById('remark').value;
+            const date = document.getElementById('date').value;
+
+            if (!selectedType || isNaN(amount) || date === "") {
+                alert("Please fill in all required fields and select a type!");
+                return;
+            }
+
+            const formattedDate = formatDate(date);
+            const table = document.getElementById('recordsTable').getElementsByTagName('tbody')[0];
+            const newRow = table.insertRow();
+
+            const cell1 = newRow.insertCell(0); // Date
+            const cell2 = newRow.insertCell(1); // Remark
+            const cell3 = newRow.insertCell(2); // Income
+            const cell4 = newRow.insertCell(3); // Expense
+            const cell5 = newRow.insertCell(4); // Balance
+            const cell6 = newRow.insertCell(5); // Action
+
+            cell1.innerHTML = formattedDate;
+            cell2.innerHTML = remark;
+            if (selectedType === "Income") {
+                cell3.innerHTML = amount.toFixed(2);
+                cell4.innerHTML = "-";
+                totalBalance += amount;
+            } else if (selectedType === "Expense") {
+                cell3.innerHTML = "-";
+                cell4.innerHTML = amount.toFixed(2);
+                totalBalance -= amount;
+            }
+
+            cell5.innerHTML = totalBalance.toFixed(2); // Update balance for this row
+            cell6.innerHTML = `<button class="delete-btn" onclick="deleteRow(this)">Delete</button>`; // Add delete button
+
+            // Update total balance below the table
+            document.getElementById('totalBalance').textContent = totalBalance.toFixed(2);
+
+            // Clear input fields
+            document.getElementById('incomeBtn').disabled = false;
+            document.getElementById('expenseBtn').disabled = false;
+            selectedType = "";
+            document.getElementById('amount').value = "";
+            document.getElementById('remark').value = "";
+            document.getElementById('date').value = "";
+        }
+
+        function formatDate(dateString) {
+            const [year, month, day] = dateString.split('-');
+            return `${day}-${month}-${year}`;
+        }
+
+        function deleteRow(button) {
+            const row = button.parentNode.parentNode; // Get the row of the button
+            const amount = parseFloat(row.cells[2].textContent) || parseFloat(row.cells[3].textContent);
+            if (row.cells[2].textContent !== "-") {
+                totalBalance -= amount; // Adjust total balance
+            } else {
+                totalBalance += amount; // Adjust total balance for expenses
+            }
+            row.remove(); // Remove the row from the table
+            document.getElementById('totalBalance').textContent = totalBalance.toFixed(2); // Update total balance display
+        }
+
+        function exportToExcel() {
+            const table = document.getElementById('recordsTable');
+            const workbook = XLSX.utils.table_to_book(table, { sheet: "Sheet1" });
+            const fileName = getFileName(".xlsx");
+            XLSX.writeFile(workbook, fileName);
+        }
+
+        function exportToPDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+
+            // Adding title to PDF
+            doc.text("Business Income & Expense Report", 20, 20);
+
+            // Exporting table to PDF
+            doc.autoTable({
+                head: [['Date', 'Remark', 'Income', 'Expense', 'Balance']],
+                body: getTableData(),
+                startY: 30
+            });
+
+            const fileName = getFileName(".pdf");
+            doc.save(fileName);
+        }
+
+        function getTableData() {
+            const rows = document.getElementById('recordsTable').getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+            const data = [];
+            for (let row of rows) {
+                const rowData = [];
+                for (let cell of row.cells) {
+                    rowData.push(cell.textContent);
+                }
+                data.push(rowData);
+            }
+            return data;
+        }
+
+        function getFileName(extension) {
+            const rows = document.getElementById('recordsTable').getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+            if (rows.length === 0) return "Report" + extension;
+            
+            const firstDate = rows[0].cells[0].textContent;
+            const lastDate = rows[rows.length - 1].cells[0].textContent;
+            return `Report_${firstDate}_to_${lastDate}${extension}`;
+        }
+    </script>
+
+</body>
+</html>
